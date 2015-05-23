@@ -58,3 +58,4 @@ $lang['Color'] = '顏色';
 $lang['Only for unauthenticated users'] = '僅適用於未經驗證的用戶';
 $lang['We detected that EasyCaptcha plugin is available on your gallery. Both plugins can be used at the same time, but you should not under any circumstances activate both of them on the same page.'] = '我們發現EasyCaptcha插件被激活在您的相冊。
 這兩個插件可以用在同一時間，但在任何情況下，都不應該在同一頁面上激活他們兩個。';
+$lang['Nowhere'] = '任何地方';
