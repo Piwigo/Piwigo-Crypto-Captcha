@@ -21,7 +21,7 @@
 // | USA.                                                                  |
 // +-----------------------------------------------------------------------+
 $lang['Activate on'] = 'Activeren';
-$lang['Album comments'] = 'Album commentaren';
+$lang['Album comments'] = 'Album-commentaren';
 $lang['Background color'] = 'Achtergrondkleur';
 $lang['Captcha theme'] = 'Captcha thema';
 $lang['Captcha type'] = 'Captcha type';
