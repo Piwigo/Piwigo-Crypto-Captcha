@@ -3,7 +3,7 @@
  * this file take parameters from $_GET, reserved for admin usage
  */
  
-define('PHPWG_ROOT_PATH','../../../');
+define('PHPWG_ROOT_PATH', '../../../');
 include_once(PHPWG_ROOT_PATH.'include/common.inc.php');
 
 is_admin() or die('Hacking attempt!');
@@ -26,15 +26,14 @@ $temp_conf = array(
   'ttf_file'        => $_GET['ttf_file'],
   );
 
-  
+
 // randomize colors
 function randomColor()
 {
-  mt_srand((double)microtime()*1000000);
   $c = null;
   while(strlen($c)<6)
   {
-      $c .= sprintf("%02X", mt_rand(0, 255));
+    $c .= sprintf("%02X", mt_rand(0, 255));
   }
   return $c;
 }
@@ -51,10 +50,10 @@ $img = new securimage();
 $img->ttf_file        = './fonts/'.$temp_conf['ttf_file'].'.ttf';
 $img->captcha_type    = ($temp_conf['captcha_type'] == 'string') ? Securimage::SI_CAPTCHA_STRING : Securimage::SI_CAPTCHA_MATHEMATIC;
 // $img->case_sensitive  = get_boolean($temp_conf['case_sensitive']);
-$img->image_width     = $temp_conf['width']; 
+$img->image_width     = $temp_conf['width'];
 $img->image_height    = $temp_conf['height'];
 $img->perturbation    = $temp_conf['perturbation'];
-$img->text_color      = new Securimage_Color('#'.$temp_conf['text_color']); 
+$img->text_color      = new Securimage_Color('#'.$temp_conf['text_color']);
 $img->num_lines       = $temp_conf['num_lines'];
 $img->line_color      = new Securimage_Color('#'.$temp_conf['line_color']);
 $img->noise_level     = $temp_conf['noise_level'];
