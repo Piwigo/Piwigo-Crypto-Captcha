@@ -56,3 +56,5 @@ $lang['Background image'] = 'Imatge de fons';
 $lang['Color'] = 'Color';
 $lang['Image'] = 'Imatge';
 $lang['We detected that EasyCaptcha plugin is available on your gallery. Both plugins can be used at the same time, but you should not under any circumstances activate both of them on the same page.'] = 'S\'ha detectat que el connector EasyCaptcha està disponible en la vostra galeria. Els dos connectors es poden utilitzar al mateix temps, però en cap circimcstància haurien d\'estar activats en la mateixa pàgina.';
+$lang['Nowhere'] = 'Enlloc';
+$lang['Only for unauthenticated users'] = 'Només per a usuaris no autenticats';
