@@ -37,3 +37,6 @@ $lang['We detected that EasyCaptcha plugin is available on your gallery. Both pl
 $lang['Background'] = 'pozadí';
 $lang['Color'] = 'barvy';
 $lang['Image'] = 'obrázek';
+$lang['Background image'] = 'Obrázek na pozadí';
+$lang['Nowhere'] = 'Nikde';
+$lang['Only for unauthenticated users'] = 'Jen pro nepřihlášené uživatele';
