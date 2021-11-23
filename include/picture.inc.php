@@ -13,7 +13,7 @@ function add_crypto()
   $template->set_prefilter('picture', 'prefilter_crypto');
 }
 
-function prefilter_crypto($content, $smarty)
+function prefilter_crypto($content)
 {
   $search = '{$comment_add.CONTENT}</textarea></p>';
   return str_replace($search, $search."\n{\$CRYPTO.parsed_content}", $content);

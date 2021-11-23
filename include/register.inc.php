@@ -13,7 +13,7 @@ function add_crypto()
   $template->set_prefilter('register', 'prefilter_crypto');
 }
 
-function prefilter_crypto($content, $smarty)
+function prefilter_crypto($content)
 {
   $search = '#\(\{\'useful when password forgotten\'\|(@?)translate\}\)(\s*)((?:\{/if\})?)#i';
   $replace = '({\'useful when password forgotten\'|$1translate})$2$3'."\n".'{\$CRYPTO.parsed_content}';
