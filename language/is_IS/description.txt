@@ -1,0 +1,1 @@
+Bættu við captcha fyrir nýskráningu, umsagnir, gestabók og hafa samband síðu
