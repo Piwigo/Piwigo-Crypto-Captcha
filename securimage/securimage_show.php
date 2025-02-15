@@ -55,7 +55,7 @@ require_once dirname(__FILE__) . '/securimage.php';
 // randomize colors 
 function randomColor()
 {
-  $c = null;
+  $c = '';
   while(strlen($c)<6)
   {
     $c .= sprintf("%02X", mt_rand(0, 255));

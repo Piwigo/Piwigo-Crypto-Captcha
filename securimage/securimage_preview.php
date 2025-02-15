@@ -30,7 +30,7 @@ $temp_conf = array(
 // randomize colors
 function randomColor()
 {
-  $c = null;
+  $c = '';
   while(strlen($c)<6)
   {
     $c .= sprintf("%02X", mt_rand(0, 255));
