@@ -212,6 +212,11 @@
  */
 class Securimage
 {
+    // Define properties to prevent deprecated dynamic property errors
+    public $code_entered = '';
+    public $correct_code = false;
+    // The rest of the class remains unchanged...
+
     // All of the public variables below are securimage options
     // They can be passed as an array to the Securimage constructor, set below,
     // or set from securimage_show.php and securimage_play.php
@@ -940,6 +945,13 @@ class Securimage
      * @var int
      */
     protected $gdlinecolor;
+
+    /**
+     * The GD color for the noise color
+     *
+     * @var int
+     */
+    protected $gdnoisecolor;
 
     /**
      * The GD color for the signature text color
@@ -1767,43 +1779,23 @@ class Securimage
                                               $this->image_bg_color->g,
                                               $this->image_bg_color->b);
 
-        $alpha = intval($this->text_transparency_percentage / 100 * 127);
-
-        if ($this->use_transparent_text == true) {
-            $this->gdtextcolor = imagecolorallocatealpha($this->im,
-                                                         $this->text_color->r,
-                                                         $this->text_color->g,
-                                                         $this->text_color->b,
-                                                         $alpha);
-            $this->gdlinecolor = imagecolorallocatealpha($this->im,
-                                                         $this->line_color->r,
-                                                         $this->line_color->g,
-                                                         $this->line_color->b,
-                                                         $alpha);
-            $this->gdnoisecolor = imagecolorallocatealpha($this->im,
-                                                          $this->noise_color->r,
-                                                          $this->noise_color->g,
-                                                          $this->noise_color->b,
-                                                          $alpha);
-        } else {
-            $this->gdtextcolor = imagecolorallocate($this->im,
-                                                    $this->text_color->r,
-                                                    $this->text_color->g,
-                                                    $this->text_color->b);
-            $this->gdlinecolor = imagecolorallocate($this->im,
-                                                    $this->line_color->r,
-                                                    $this->line_color->g,
-                                                    $this->line_color->b);
-            $this->gdnoisecolor = imagecolorallocate($this->im,
-                                                          $this->noise_color->r,
-                                                          $this->noise_color->g,
-                                                          $this->noise_color->b);
-        }
+        $this->gdtextcolor = imagecolorallocate($this->im,
+                                              $this->text_color->r,
+                                              $this->text_color->g,
+                                              $this->text_color->b);
+        $this->gdlinecolor = imagecolorallocate($this->im,
+                                              $this->line_color->r,
+                                              $this->line_color->g,
+                                              $this->line_color->b);
+        $this->gdnoisecolor = imagecolorallocate($this->im,
+                                              $this->noise_color->r,
+                                              $this->noise_color->g,
+                                              $this->noise_color->b);
 
         $this->gdsignaturecolor = imagecolorallocate($this->im,
-                                                     $this->signature_color->r,
-                                                     $this->signature_color->g,
-                                                     $this->signature_color->b);
+                                              $this->signature_color->r,
+                                              $this->signature_color->g,
+                                              $this->signature_color->b);
 
     }
 
@@ -1981,11 +1973,23 @@ class Securimage
     protected function distortedCopy()
     {
         $numpoles = 3; // distortion factor
+        $px       = array(); // x coordinates of poles
+        $py       = array(); // y coordinates of poles
+        $rad      = array(); // radius of distortion from pole
+        $amp      = array(); // amplitude
+        $x        = ($this->image_width / 4); // lowest x coordinate of a pole
+        $maxX     = $this->image_width - $x;  // maximum x coordinate of a pole
+        $dx       = mt_rand(round($x / 10, 0), $x);     // horizontal distance between poles
+        $y        = mt_rand(20, $this->image_height - 20);  // random y coord
+        $dy       = mt_rand(20, round($this->image_height * 0.7, 0)); // y distance
+        $minY     = 20;                                     // minimum y coordinate
+        $maxY     = $this->image_height - 20;               // maximum y cooddinate
+
         // make array of poles AKA attractor points
         for ($i = 0; $i < $numpoles; ++ $i) {
-            $px[$i]  = mt_rand($this->image_width  * 0.2, $this->image_width  * 0.8);
-            $py[$i]  = mt_rand($this->image_height * 0.2, $this->image_height * 0.8);
-            $rad[$i] = mt_rand($this->image_height * 0.2, $this->image_height * 0.8);
+            $px[$i]  = ($x + ($dx * $i)) % $maxX;
+            $py[$i]  = ($y + ($dy * $i)) % $maxY + $minY;
+            $rad[$i] = mt_rand($this->image_height * 0.4, $this->image_height * 0.8);
             $tmp     = ((- $this->frand()) * 0.15) - .15;
             $amp[$i] = $this->perturbation * $tmp;
         }
@@ -1994,6 +1998,7 @@ class Securimage
         $width2 = $this->iscale * $this->image_width;
         $height2 = $this->iscale * $this->image_height;
         imagepalettecopy($this->im, $this->tmpimg); // copy palette to final image so text colors come across
+
         // loop over $img pixels, take pixels from $tmpimg with distortion field
         for ($ix = 0; $ix < $this->image_width; ++ $ix) {
             for ($iy = 0; $iy < $this->image_height; ++ $iy) {
@@ -2017,7 +2022,7 @@ class Securimage
                 $x *= $this->iscale;
                 $y *= $this->iscale;
                 if ($x >= 0 && $x < $width2 && $y >= 0 && $y < $height2) {
-                    $c = imagecolorat($this->tmpimg, $x, $y);
+                    $c = imagecolorat($this->tmpimg, round($x, 0), round($y, 0));
                 }
                 if ($c != $bgCol) { // only copy pixels of letters to preserve any background image
                     imagesetpixel($this->im, $ix, $iy, $c);
@@ -2038,7 +2043,7 @@ class Securimage
 
             $theta = ($this->frand() - 0.5) * M_PI * 0.7;
             $w = $this->image_width;
-            $len = mt_rand($w * 0.4, $w * 0.7);
+            $len = mt_rand((int)($w * 0.4), (int)($w * 0.7));
             $lwid = mt_rand(0, 2);
 
             $k = $this->frand() * 0.6 + 0.2;
@@ -2058,7 +2063,7 @@ class Securimage
             for ($i = 0; $i < $n; ++ $i) {
                 $x = $x0 + $i * $dx + $amp * $dy * sin($k * $i * $step + $phi);
                 $y = $y0 + $i * $dy - $amp * $dx * sin($k * $i * $step + $phi);
-                imagefilledrectangle($this->im, $x, $y, $x + $lwid, $y + $lwid, $this->gdlinecolor);
+                imagefilledrectangle($this->im, round($x, 0), round($y, 0), round($x + $lwid, 0), round($y + $lwid, 0), $this->gdlinecolor);
             }
         }
     }
@@ -2078,15 +2083,17 @@ class Securimage
 
         $noise_level *= 125; // an arbitrary number that works well on a 1-10 scale
 
-        $points = $this->image_width * $this->image_height * $this->iscale;
-        $height = $this->image_height * $this->iscale;
-        $width  = $this->image_width * $this->iscale;
-        for ($i = 0; $i < $noise_level; ++$i) {
-            $x = mt_rand(10, $width);
-            $y = mt_rand(10, $height);
-            $size = mt_rand(7, 10);
-            if ($x - $size <= 0 && $y - $size <= 0) continue; // dont cover 0,0 since it is used by imagedistortedcopy
-            imagefilledarc($this->tmpimg, $x, $y, $size, $size, 0, 360, $this->gdnoisecolor, IMG_ARC_PIE);
+        for ($x = 1; $x < $this->image_width; $x += 20) {
+            for ($y = 1; $y < $this->image_height; $y += 20) {
+                for ($i = 0; $i < $noise_level; ++$i) {
+                    $x1 = mt_rand($x, $x + 20);
+                    $y1 = mt_rand($y, $y + 20);
+                    $size = mt_rand(1, 3);
+
+                    if ($x1 - $size <= 0 && $y1 - $size <= 0) continue; // dont cover 0,0 since it is used by imagedistortedcopy
+                    imagefilledarc($this->im, $x1, $y1, $size, $size, 0, mt_rand(180,360), $this->gdlinecolor, IMG_ARC_PIE);
+                }
+            }
         }
 
         $t1 = microtime(true);
@@ -2199,7 +2206,7 @@ class Securimage
             $length = strlen($code['display']);
 
             for($i = 0; $i < $length; ++$i) {
-                $letter    = $code['display']{$i};
+                $letter    = $code['display'][$i];
                 $letters[] = $letter;
             }
         }
