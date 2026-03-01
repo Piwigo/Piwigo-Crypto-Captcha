@@ -15,8 +15,16 @@ function add_crypto()
 
 function prefilter_crypto($content)
 {
-  $search = '#\(\{\'useful when password forgotten\'\|(@?)translate\}\)(\s*)((?:\{/if\})?)#i';
-  $replace = '({\'useful when password forgotten\'|$1translate})$2$3'."\n".'{\$CRYPTO.parsed_content}';
+  // Remove unwanted <li> wrappers from plugin.tpl output
+  $clean = str_replace(array('<li>', '</li>', '<br>'), '', '{$CRYPTO.parsed_content}');
+
+  // Wrap captcha block in the correct theme structure
+  $captcha_block = "<div class=\"col-sm-offset-2 col-sm-4 crypto-captcha-block\">\n$clean\n</div>";
+
+  // Inject BEFORE the submit button
+  $search = '#(<input[^>]*type="submit"[^>]*>)#i';
+  $replace = $captcha_block . "\n$1";
+
   return preg_replace($search, $replace, $content);
 }
 
