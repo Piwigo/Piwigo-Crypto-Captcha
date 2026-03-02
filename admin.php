@@ -25,6 +25,8 @@ if ( isset($_POST['submit']))
       'register'    => in_array('register', $_POST['activate_on']),
       'contactform' => in_array('contactform', $_POST['activate_on']) || !$loaded['contactform'],
       'guestbook'   => in_array('guestbook', $_POST['activate_on']) || !$loaded['guestbook'],
+      // add login here
+    'login'       => in_array('login', $_POST['activate_on']),
       ),
     'comments_action' => $_POST['comments_action'],
     'guest_only'      => isset($_POST['guest_only']),
