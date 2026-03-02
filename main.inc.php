@@ -41,6 +41,7 @@ else
 {
   add_event_handler('loc_end_section_init', 'crypto_document_init', EVENT_HANDLER_PRIORITY_NEUTRAL+30);
   add_event_handler('loc_begin_register', 'crypto_register_init', EVENT_HANDLER_PRIORITY_NEUTRAL+30);
+  add_event_handler('loc_begin_identification', 'crypto_login_init', EVENT_HANDLER_PRIORITY_NEUTRAL+30);
 }
 
 
@@ -108,4 +109,15 @@ function crypto_plugin_admin_menu($menu)
     'URL' => CRYPTO_ADMIN,
     );
   return $menu;
+}
+
+function crypto_login_init()
+{
+    global $conf;
+
+    // Only if the plugin is set to activate on 'register' (or add a new 'login' flag)
+    if ( $conf['cryptographp']['activate_on']['register'] )
+    {
+        include(CRYPTO_PATH . 'include/login.inc.php');
+    }
 }
