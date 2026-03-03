@@ -1851,24 +1851,27 @@ class Securimage
      * Scan the directory for a background image to use
      * @return string|bool
      */
-    protected function getBackgroundFromDirectory()
-    {
-        $images = array();
+protected function getBackgroundFromDirectory()
+{
+    $images = array();
 
-        if ( ($dh = opendir($this->background_directory)) !== false) {
-            while (($file = readdir($dh)) !== false) {
-                if (preg_match('/(jpg|gif|png)$/i', $file)) $images[] = $file;
-            }
-
-            closedir($dh);
-
-            if (sizeof($images) > 0) {
-                return rtrim($this->background_directory, '/') . '/' . $images[mt_rand(0, sizeof($images)-1)];
+    if (($dh = opendir($this->background_directory)) !== false) {
+        while (($file = readdir($dh)) !== false) {
+            if (preg_match('/(jpg|gif|png)$/i', $file)) {
+                $images[] = $file;
             }
         }
 
-        return false;
+        closedir($dh);
+
+        if (sizeof($images) > 0) {
+            $index = random_int(0, sizeof($images) - 1);
+            return rtrim($this->background_directory, '/') . '/' . $images[$index];
+        }
     }
+
+    return false;
+}
 
     /**
      * This method generates a new captcha code.
@@ -1876,53 +1879,53 @@ class Securimage
      * Generates a random captcha code based on *charset*, math problem, or captcha from the wordlist and saves the value to the session and/or database.
      */
     public function createCode()
-    {
-        $this->code = false;
+{
+    $this->code = false;
 
-        switch($this->captcha_type) {
-            case self::SI_CAPTCHA_MATHEMATIC:
-            {
-                do {
-                    $signs = array('+', '-', 'x');
-                    $left  = mt_rand(1, 10);
-                    $right = mt_rand(1, 5);
-                    $sign  = $signs[mt_rand(0, 2)];
+    switch ($this->captcha_type) {
+        case self::SI_CAPTCHA_MATHEMATIC:
+        {
+            do {
+                $signs = array('+', '-', 'x');
+                $left  = random_int(1, 10);
+                $right = random_int(1, 5);
+                $sign  = $signs[random_int(0, 2)];
 
-                    switch($sign) {
-                        case 'x': $c = $left * $right; break;
-                        case '-': $c = $left - $right; break;
-                        default:  $c = $left + $right; break;
-                    }
-                } while ($c <= 0); // no negative #'s or 0
-
-                $this->code         = "$c";
-                $this->code_display = "$left $sign $right";
-                break;
-            }
-
-            case self::SI_CAPTCHA_WORDS:
-                $words = $this->readCodeFromFile(2);
-                $this->code = implode(' ', $words);
-                $this->code_display = $this->code;
-                break;
-
-            default:
-            {
-                if ($this->use_wordlist && is_readable($this->wordlist_file)) {
-                    $this->code = $this->readCodeFromFile();
+                switch ($sign) {
+                    case 'x': $c = $left * $right; break;
+                    case '-': $c = $left - $right; break;
+                    default:  $c = $left + $right; break;
                 }
+            } while ($c <= 0); // avoid zero or negative results
 
-                if ($this->code == false) {
-                    $this->code = $this->generateCode($this->code_length);
-                }
-
-                $this->code_display = $this->code;
-                $this->code         = ($this->case_sensitive) ? $this->code : strtolower($this->code);
-            } // default
+            $this->code         = "$c";
+            $this->code_display = "$left $sign $right";
+            break;
         }
 
-        $this->saveData();
+        case self::SI_CAPTCHA_WORDS:
+            $words = $this->readCodeFromFile(2);
+            $this->code = implode(' ', $words);
+            $this->code_display = $this->code;
+            break;
+
+        default:
+        {
+            if ($this->use_wordlist && is_readable($this->wordlist_file)) {
+                $this->code = $this->readCodeFromFile();
+            }
+
+            if ($this->code == false) {
+                $this->code = $this->generateCode($this->code_length);
+            }
+
+            $this->code_display = $this->code;
+            $this->code         = ($this->case_sensitive) ? $this->code : strtolower($this->code);
+        }
     }
+
+    $this->saveData();
+}
 
     /**
      * Draws the captcha code on the image
@@ -1970,144 +1973,186 @@ class Securimage
     /**
      * Copies the captcha image to the final image with distortion applied
      */
-    protected function distortedCopy()
-    {
-        $numpoles = 3; // distortion factor
-        $px       = array(); // x coordinates of poles
-        $py       = array(); // y coordinates of poles
-        $rad      = array(); // radius of distortion from pole
-        $amp      = array(); // amplitude
-        $x        = ($this->image_width / 4); // lowest x coordinate of a pole
-        $maxX     = $this->image_width - $x;  // maximum x coordinate of a pole
-        $dx       = mt_rand(round($x / 10, 0), $x);     // horizontal distance between poles
-        $y        = mt_rand(20, $this->image_height - 20);  // random y coord
-        $dy       = mt_rand(20, round($this->image_height * 0.7, 0)); // y distance
-        $minY     = 20;                                     // minimum y coordinate
-        $maxY     = $this->image_height - 20;               // maximum y cooddinate
+protected function distortedCopy()
+{
+    $numpoles = 3; // distortion factor
+    // make array of poles AKA attractor points
+    for ($i = 0; $i < $numpoles; ++$i) {
+        $px[$i]  = random_int(
+            (int)($this->image_width * 0.2),
+            (int)($this->image_width * 0.8)
+        );
 
-        // make array of poles AKA attractor points
-        for ($i = 0; $i < $numpoles; ++ $i) {
-            $px[$i]  = ($x + ($dx * $i)) % $maxX;
-            $py[$i]  = ($y + ($dy * $i)) % $maxY + $minY;
-            $rad[$i] = mt_rand($this->image_height * 0.4, $this->image_height * 0.8);
-            $tmp     = ((- $this->frand()) * 0.15) - .15;
-            $amp[$i] = $this->perturbation * $tmp;
-        }
+        $py[$i]  = random_int(
+            (int)($this->image_height * 0.2),
+            (int)($this->image_height * 0.8)
+        );
 
-        $bgCol = imagecolorat($this->tmpimg, 0, 0);
-        $width2 = $this->iscale * $this->image_width;
-        $height2 = $this->iscale * $this->image_height;
-        imagepalettecopy($this->im, $this->tmpimg); // copy palette to final image so text colors come across
+        $rad[$i] = random_int(
+            (int)($this->image_height * 0.2),
+            (int)($this->image_height * 0.8)
+        );
 
-        // loop over $img pixels, take pixels from $tmpimg with distortion field
-        for ($ix = 0; $ix < $this->image_width; ++ $ix) {
-            for ($iy = 0; $iy < $this->image_height; ++ $iy) {
-                $x = $ix;
-                $y = $iy;
-                for ($i = 0; $i < $numpoles; ++ $i) {
-                    $dx = $ix - $px[$i];
-                    $dy = $iy - $py[$i];
-                    if ($dx == 0 && $dy == 0) {
-                        continue;
-                    }
-                    $r = sqrt($dx * $dx + $dy * $dy);
-                    if ($r > $rad[$i]) {
-                        continue;
-                    }
-                    $rscale = $amp[$i] * sin(3.14 * $r / $rad[$i]);
-                    $x += $dx * $rscale;
-                    $y += $dy * $rscale;
+        $tmp     = ((-$this->frand()) * 0.15) - 0.15;
+        $amp[$i] = $this->perturbation * $tmp;
+    }
+
+    $bgCol = imagecolorat($this->tmpimg, 0, 0);
+    $width2 = $this->iscale * $this->image_width;
+    $height2 = $this->iscale * $this->image_height;
+
+    imagepalettecopy($this->im, $this->tmpimg);
+
+    // loop over $img pixels, take pixels from $tmpimg with distortion field
+    for ($ix = 0; $ix < $this->image_width; ++$ix) {
+        for ($iy = 0; $iy < $this->image_height; ++$iy) {
+            $x = $ix;
+            $y = $iy;
+
+            for ($i = 0; $i < $numpoles; ++$i) {
+                $dx = $ix - $px[$i];
+                $dy = $iy - $py[$i];
+
+                if ($dx == 0 && $dy == 0) {
+                    continue;
                 }
-                $c = $bgCol;
-                $x *= $this->iscale;
-                $y *= $this->iscale;
-                if ($x >= 0 && $x < $width2 && $y >= 0 && $y < $height2) {
-                    $c = imagecolorat($this->tmpimg, round($x, 0), round($y, 0));
+
+                $r = sqrt($dx * $dx + $dy * $dy);
+                if ($r > $rad[$i]) {
+                    continue;
                 }
-                if ($c != $bgCol) { // only copy pixels of letters to preserve any background image
-                    imagesetpixel($this->im, $ix, $iy, $c);
-                }
+
+                $rscale = $amp[$i] * sin(3.14 * $r / $rad[$i]);
+                $x += $dx * $rscale;
+                $y += $dy * $rscale;
+            }
+
+            $c = $bgCol;
+            $x *= $this->iscale;
+            $y *= $this->iscale;
+
+            if ($x >= 0 && $x < $width2 && $y >= 0 && $y < $height2) {
+                $c = imagecolorat($this->tmpimg, (int)$x, (int)$y);
+            }
+
+            if ($c != $bgCol) {
+                imagesetpixel($this->im, $ix, $iy, $c);
             }
         }
     }
+}
 
     /**
      * Draws distorted lines on the image
      */
-    protected function drawLines()
-    {
-        for ($line = 0; $line < $this->num_lines; ++ $line) {
-            $x = $this->image_width * (1 + $line) / ($this->num_lines + 1);
-            $x += (0.5 - $this->frand()) * $this->image_width / $this->num_lines;
-            $y = mt_rand($this->image_height * 0.1, $this->image_height * 0.9);
+protected function drawLines()
+{
+    for ($line = 0; $line < $this->num_lines; ++$line) {
+        $x = $this->image_width * (1 + $line) / ($this->num_lines + 1);
+        $x += (0.5 - $this->frand()) * $this->image_width / $this->num_lines;
 
-            $theta = ($this->frand() - 0.5) * M_PI * 0.7;
-            $w = $this->image_width;
-            $len = mt_rand((int)($w * 0.4), (int)($w * 0.7));
-            $lwid = mt_rand(0, 2);
+        $y = random_int(
+            (int)($this->image_height * 0.1),
+            (int)($this->image_height * 0.9)
+        );
 
-            $k = $this->frand() * 0.6 + 0.2;
-            $k = $k * $k * 0.5;
-            $phi = $this->frand() * 6.28;
-            $step = 0.5;
-            $dx = $step * cos($theta);
-            $dy = $step * sin($theta);
-            $n = $len / $step;
-            $amp = 1.5 * $this->frand() / ($k + 5.0 / $len);
-            $x0 = $x - 0.5 * $len * cos($theta);
-            $y0 = $y - 0.5 * $len * sin($theta);
+        $theta = ($this->frand() - 0.5) * M_PI * 0.7;
+        $w = $this->image_width;
 
-            $ldx = round(- $dy * $lwid);
-            $ldy = round($dx * $lwid);
+        $len = random_int(
+            (int)($w * 0.4),
+            (int)($w * 0.7)
+        );
 
-            for ($i = 0; $i < $n; ++ $i) {
-                $x = $x0 + $i * $dx + $amp * $dy * sin($k * $i * $step + $phi);
-                $y = $y0 + $i * $dy - $amp * $dx * sin($k * $i * $step + $phi);
-                imagefilledrectangle($this->im, round($x, 0), round($y, 0), round($x + $lwid, 0), round($y + $lwid, 0), $this->gdlinecolor);
-            }
+        $lwid = random_int(0, 2);
+
+        $k = $this->frand() * 0.6 + 0.2;
+        $k = $k * $k * 0.5;
+        $phi = $this->frand() * 6.28;
+
+        $step = 0.5;
+        $dx = $step * cos($theta);
+        $dy = $step * sin($theta);
+        $n = $len / $step;
+
+        $amp = 1.5 * $this->frand() / ($k + 5.0 / $len);
+        $x0 = $x - 0.5 * $len * cos($theta);
+        $y0 = $y - 0.5 * $len * sin($theta);
+
+        // (These variables are currently unused but kept to preserve original logic)
+        $ldx = round(-$dy * $lwid);
+        $ldy = round($dx * $lwid);
+
+        for ($i = 0; $i < $n; ++$i) {
+            $x = $x0 + $i * $dx + $amp * $dy * sin($k * $i * $step + $phi);
+            $y = $y0 + $i * $dy - $amp * $dx * sin($k * $i * $step + $phi);
+
+            imagefilledrectangle(
+                $this->im,
+                (int)$x,
+                (int)$y,
+                (int)($x + $lwid),
+                (int)($y + $lwid),
+                $this->gdlinecolor
+            );
         }
     }
+}
 
     /**
      * Draws random noise on the image
      */
-    protected function drawNoise()
-    {
-        if ($this->noise_level > 10) {
-            $noise_level = 10;
-        } else {
-            $noise_level = $this->noise_level;
-        }
-
-        $t0 = microtime(true);
-
-        $noise_level *= 125; // an arbitrary number that works well on a 1-10 scale
-
-        for ($x = 1; $x < $this->image_width; $x += 20) {
-            for ($y = 1; $y < $this->image_height; $y += 20) {
-                for ($i = 0; $i < $noise_level; ++$i) {
-                    $x1 = mt_rand($x, $x + 20);
-                    $y1 = mt_rand($y, $y + 20);
-                    $size = mt_rand(1, 3);
-
-                    if ($x1 - $size <= 0 && $y1 - $size <= 0) continue; // dont cover 0,0 since it is used by imagedistortedcopy
-                    imagefilledarc($this->im, $x1, $y1, $size, $size, 0, mt_rand(180,360), $this->gdlinecolor, IMG_ARC_PIE);
-                }
-            }
-        }
-
-        $t1 = microtime(true);
-
-        $t = $t1 - $t0;
-
-        /*
-        // DEBUG
-        imagestring($this->tmpimg, 5, 25, 30, "$t", $this->gdnoisecolor);
-        header('content-type: image/png');
-        imagepng($this->tmpimg);
-        exit;
-        */
+protected function drawNoise()
+{
+    if ($this->noise_level > 10) {
+        $noise_level = 10;
+    } else {
+        $noise_level = $this->noise_level;
     }
+
+    $t0 = microtime(true);
+
+    // convert 1–10 → usable noise quantity
+    $noise_level *= 125;
+
+    $points = $this->image_width * $this->image_height * $this->iscale;
+    $height = $this->image_height * $this->iscale;
+    $width  = $this->image_width * $this->iscale;
+
+    for ($i = 0; $i < $noise_level; ++$i) {
+        $x = random_int(10, $width);
+        $y = random_int(10, $height);
+        $size = random_int(7, 10);
+
+        // avoid covering top-left pixel (0,0)
+        if ($x - $size <= 0 && $y - $size <= 0) {
+            continue;
+        }
+
+        imagefilledarc(
+            $this->tmpimg,
+            $x,
+            $y,
+            $size,
+            $size,
+            0,
+            360,
+            $this->gdnoisecolor,
+            IMG_ARC_PIE
+        );
+    }
+
+    $t1 = microtime(true);
+    $t = $t1 - $t0;
+
+    /*
+    // DEBUG
+    imagestring($this->tmpimg, 5, 25, 30, "$t", $this->gdnoisecolor);
+    header('content-type: image/png');
+    imagepng($this->tmpimg);
+    exit;
+    */
+}
 
     /**
     * Print signature text on image
@@ -2226,81 +2271,91 @@ class Securimage
      * @param int $numWords Number of words (lines) to read from the file
      * @return string|array|bool  Returns a string if only one word is to be read, or an array of words
      */
-    protected function readCodeFromFile($numWords = 1)
-    {
-        $strpos_func     = 'strpos';
-        $strlen_func     = 'strlen';
-        $substr_func     = 'substr';
-        $strtolower_func = 'strtolower';
-        $mb_support      = false;
+protected function readCodeFromFile($numWords = 1)
+{
+    $strpos_func     = 'strpos';
+    $strlen_func     = 'strlen';
+    $substr_func     = 'substr';
+    $strtolower_func = 'strtolower';
+    $mb_support      = false;
 
-        if (!empty($this->wordlist_file_encoding)) {
-            if (!extension_loaded('mbstring')) {
-                trigger_error("wordlist_file_encoding option set, but PHP does not have mbstring support", E_USER_WARNING);
-                return false;
-            }
-
-            // emits PHP warning if not supported
-            $mb_support = mb_internal_encoding($this->wordlist_file_encoding);
-
-            if (!$mb_support) {
-                return false;
-            }
-
-            $strpos_func     = 'mb_strpos';
-            $strlen_func     = 'mb_strlen';
-            $substr_func     = 'mb_substr';
-            $strtolower_func = 'mb_strtolower';
+    if (!empty($this->wordlist_file_encoding)) {
+        if (!extension_loaded('mbstring')) {
+            trigger_error("wordlist_file_encoding option set, but PHP does not have mbstring support", E_USER_WARNING);
+            return false;
         }
 
-        $fp = fopen($this->wordlist_file, 'rb');
-        if (!$fp) return false;
+        // emits PHP warning if not supported
+        $mb_support = mb_internal_encoding($this->wordlist_file_encoding);
 
-        $fsize = filesize($this->wordlist_file);
-        if ($fsize < 128) return false; // too small of a list to be effective
-
-        if ((int)$numWords < 1 || (int)$numWords > 5) $numWords = 1;
-
-        $words = array();
-        $i = 0;
-        do {
-            fseek($fp, mt_rand(0, $fsize - 128), SEEK_SET); // seek to a random position of file from 0 to filesize-128
-            $data = fread($fp, 128); // read a chunk from our random position
-
-            if ($mb_support !== false) {
-                $data = mb_ereg_replace("\r?\n", "\n", $data);
-            } else {
-                $data = preg_replace("/\r?\n/", "\n", $data);
-            }
-
-            $start = @$strpos_func($data, "\n", mt_rand(0, 56)) + 1; // random start position
-            $end   = @$strpos_func($data, "\n", $start);          // find end of word
-
-            if ($start === false) {
-                // picked start position at end of file
-                continue;
-            } else if ($end === false) {
-                $end = $strlen_func($data);
-            }
-
-            $word = $strtolower_func($substr_func($data, $start, $end - $start)); // return a line of the file
-
-            if ($mb_support) {
-                // convert to UTF-8 for imagettftext
-                $word = mb_convert_encoding($word, 'UTF-8', $this->wordlist_file_encoding);
-            }
-
-            $words[] = $word;
-        } while (++$i < $numWords);
-
-        fclose($fp);
-
-        if ($numWords < 2) {
-            return $words[0];
-        } else {
-            return $words;
+        if (!$mb_support) {
+            return false;
         }
+
+        $strpos_func     = 'mb_strpos';
+        $strlen_func     = 'mb_strlen';
+        $substr_func     = 'mb_substr';
+        $strtolower_func = 'mb_strtolower';
     }
+
+    $fp = fopen($this->wordlist_file, 'rb');
+    if (!$fp) return false;
+
+    $fsize = filesize($this->wordlist_file);
+    if ($fsize < 128) return false; // too small of a list to be effective
+
+    if ((int)$numWords < 1 || (int)$numWords > 5) {
+        $numWords = 1;
+    }
+
+    $words = [];
+    $i = 0;
+
+    do {
+        // Seek to a random position: from 0 to $fsize - 128
+        fseek($fp, random_int(0, $fsize - 128), SEEK_SET);
+
+        // Read 128 bytes from that random position
+        $data = fread($fp, 128);
+
+        // Normalize newlines
+        if ($mb_support !== false) {
+            $data = mb_ereg_replace("\r?\n", "\n", $data);
+        } else {
+            $data = preg_replace("/\r?\n/", "\n", $data);
+        }
+
+        // Start searching for the next newline after a random offset 0–56
+        $start_offset = random_int(0, 56);
+        $start = @$strpos_func($data, "\n", $start_offset) + 1;
+
+        if ($start === false) {
+            // random offset may land near the end → just try again
+            continue;
+        }
+
+        // Find end of line
+        $end = @$strpos_func($data, "\n", $start);
+        if ($end === false) {
+            $end = $strlen_func($data);
+        }
+
+        // Extract the word
+        $word = $strtolower_func($substr_func($data, $start, $end - $start));
+
+        // Convert to UTF-8 if needed
+        if ($mb_support) {
+            $word = mb_convert_encoding($word, 'UTF-8', $this->wordlist_file_encoding);
+        }
+
+        $words[] = $word;
+
+    } while (++$i < $numWords);
+
+    fclose($fp);
+
+    return ($numWords < 2) ? $words[0] : $words;
+}
 
     /**
      * Generates a random captcha code from the set character set
@@ -2308,22 +2363,26 @@ class Securimage
      * @see Securimage::$charset  Charset option
      * @return string A randomly generated CAPTCHA code
      */
-    protected function generateCode()
-    {
-        $code = '';
+protected function generateCode()
+{
+    $code = '';
 
-        if (function_exists('mb_strlen')) {
-            for($i = 1, $cslen = mb_strlen($this->charset, 'UTF-8'); $i <= $this->code_length; ++$i) {
-                $code .= mb_substr($this->charset, mt_rand(0, $cslen - 1), 1, 'UTF-8');
-            }
-        } else {
-            for($i = 1, $cslen = strlen($this->charset); $i <= $this->code_length; ++$i) {
-                $code .= substr($this->charset, mt_rand(0, $cslen - 1), 1);
-            }
+    if (function_exists('mb_strlen')) {
+        $cslen = mb_strlen($this->charset, 'UTF-8');
+        for ($i = 1; $i <= $this->code_length; ++$i) {
+            $index = random_int(0, $cslen - 1);
+            $code .= mb_substr($this->charset, $index, 1, 'UTF-8');
         }
-
-        return $code;
+    } else {
+        $cslen = strlen($this->charset);
+        for ($i = 1; $i <= $this->code_length; ++$i) {
+            $index = random_int(0, $cslen - 1);
+            $code .= substr($this->charset, $index, 1);
+        }
     }
+
+    return $code;
+}
 
     /**
      * Validate a code supplied by the user
@@ -2592,9 +2651,9 @@ class Securimage
             return false;
         }
 
-        if (mt_rand(0, 100) / 100.0 == 1.0) {
-            $this->purgeOldCodesFromDatabase();
-        }
+if (random_int(0, 100) / 100.0 == 1.0) {
+    $this->purgeOldCodesFromDatabase();
+}
 
         return $this->pdo_conn;
     }
@@ -2920,10 +2979,11 @@ class Securimage
                 // append letter to the captcha audio
                 $wavCaptcha->appendWav($l);
 
-                // random length of silence between $audio_gap_min and $audio_gap_max
-                if ($this->audio_gap_max > 0 && $this->audio_gap_max > $this->audio_gap_min) {
-                    $wavCaptcha->insertSilence( mt_rand($this->audio_gap_min, $this->audio_gap_max) / 1000.0 );
-                }
+// random length of silence between $audio_gap_min and $audio_gap_max
+if ($this->audio_gap_max > 0 && $this->audio_gap_max > $this->audio_gap_min) {
+    $wavCaptcha->insertSilence(random_int($this->audio_gap_min, $this->audio_gap_max) / 1000.0);
+}
+
             } catch (Exception $ex) {
                 // failed to open file, or the wav file is broken or not supported
                 // 2 wav files were not compatible, different # channels, bits/sample, or sample rate
@@ -2968,13 +3028,14 @@ class Securimage
 
                 $randOffset = 0;
 
-                if ($wavNoise->getNumBlocks() > 2 * $wavCaptcha->getNumBlocks()) {
-                    $randBlock = mt_rand(0, $wavNoise->getNumBlocks() - $wavCaptcha->getNumBlocks());
-                    $wavNoise->readWavData($randBlock * $wavNoise->getBlockAlign(), $wavCaptcha->getNumBlocks() * $wavNoise->getBlockAlign());
-                } else {
-                    $wavNoise->readWavData();
-                    $randOffset = mt_rand(0, $wavNoise->getNumBlocks() - 1);
-                }
+if ($wavNoise->getNumBlocks() > 2 * $wavCaptcha->getNumBlocks()) {
+    $randBlock = random_int(0, $wavNoise->getNumBlocks() - $wavCaptcha->getNumBlocks());
+    $wavNoise->readWavData($randBlock * $wavNoise->getBlockAlign(), $wavCaptcha->getNumBlocks() * $wavNoise->getBlockAlign());
+} else {
+    $wavNoise->readWavData();
+    $randOffset = random_int(0, $wavNoise->getNumBlocks() - 1);
+}
+
             }
 
             if ($wavNoise !== false) {
@@ -2987,11 +3048,11 @@ class Securimage
             }
         }
 
-        if ($this->degrade_audio == true) {
-            // add random noise.
-            // any noise level below 95% is intensely distorted and not pleasant to the ear
-            $filters[WavFile::FILTER_DEGRADE] = mt_rand(95, 98) / 100.0;
-        }
+if ($this->degrade_audio == true) {
+    // add random noise.
+    // any noise level below 95% is intensely distorted and not pleasant to the ear
+    $filters[WavFile::FILTER_DEGRADE] = random_int(95, 98) / 100.0;
+}
 
         if (!empty($filters)) {
             $wavCaptcha->filter($filters);  // apply filters to captcha audio
@@ -3046,78 +3107,78 @@ class Securimage
      * @param int $numEffects  How many effects to chain together
      * @return string  A string of valid SoX effects and their respective options.
      */
-    protected function getSoxEffectChain($numEffects = 2)
-    {
-        $effectsList = array('bend', 'chorus', 'overdrive', 'pitch', 'reverb', 'tempo', 'tremolo');
-        $effects     = array_rand($effectsList, $numEffects);
-        $outEffects  = array();
+protected function getSoxEffectChain($numEffects = 2)
+{
+    $effectsList = array('bend', 'chorus', 'overdrive', 'pitch', 'reverb', 'tempo', 'tremolo');
+    $effects     = array_rand($effectsList, $numEffects);
+    $outEffects  = array();
 
-        if (!is_array($effects)) $effects = array($effects);
+    if (!is_array($effects)) $effects = array($effects);
 
-        foreach($effects as $effect) {
-            $effect = $effectsList[$effect];
+    foreach($effects as $effect) {
+        $effect = $effectsList[$effect];
 
-            switch($effect)
-            {
-                case 'bend':
-                    $delay = mt_rand(0, 15) / 100.0;
-                    $cents = mt_rand(-120, 120);
-                    $dur   = mt_rand(75, 400) / 100.0;
-                    $outEffects[] = "$effect $delay,$cents,$dur";
-                    break;
+        switch($effect)
+        {
+            case 'bend':
+                $delay = random_int(0, 15) / 100.0;
+                $cents = random_int(-120, 120);
+                $dur   = random_int(75, 400) / 100.0;
+                $outEffects[] = "$effect $delay,$cents,$dur";
+                break;
 
-                case 'chorus':
-                    $gainIn  = mt_rand(75, 90) / 100.0;
-                    $gainOut = mt_rand(70, 95) / 100.0;
-                    $chorStr = "$effect $gainIn $gainOut";
+            case 'chorus':
+                $gainIn  = random_int(75, 90) / 100.0;
+                $gainOut = random_int(70, 95) / 100.0;
+                $chorStr = "$effect $gainIn $gainOut";
 
-                    for ($i = 0; $i < mt_rand(2, 3); ++$i) {
-                        $delay = mt_rand(20, 100);
-                        $decay = mt_rand(10, 100) / 100.0;
-                        $speed = mt_rand(20, 50) / 100.0;
-                        $depth = mt_rand(150, 250) / 100.0;
+                for ($i = 0; $i < random_int(2, 3); ++$i) {
+                    $delay = random_int(20, 100);
+                    $decay = random_int(10, 100) / 100.0;
+                    $speed = random_int(20, 50) / 100.0;
+                    $depth = random_int(150, 250) / 100.0;
 
-                        $chorStr .= " $delay $decay $speed $depth -s";
-                    }
+                    $chorStr .= " $delay $decay $speed $depth -s";
+                }
 
-                    $outEffects[] = $chorStr;
-                    break;
+                $outEffects[] = $chorStr;
+                break;
 
-                case 'overdrive':
-                    $gain = mt_rand(5, 25);
-                    $color = mt_rand(20, 70);
-                    $outEffects[] = "$effect $gain $color";
-                    break;
+            case 'overdrive':
+                $gain  = random_int(5, 25);
+                $color = random_int(20, 70);
+                $outEffects[] = "$effect $gain $color";
+                break;
 
-                case 'pitch':
-                    $cents = mt_rand(-300, 300);
-                    $outEffects[] = "$effect $cents";
-                    break;
+            case 'pitch':
+                $cents = random_int(-300, 300);
+                $outEffects[] = "$effect $cents";
+                break;
 
-                case 'reverb':
-                    $reverberance = mt_rand(20, 80);
-                    $damping      = mt_rand(10, 80);
-                    $scale        = mt_rand(85, 100);
-                    $depth        = mt_rand(90, 100);
-                    $predelay     = mt_rand(0, 5);
-                    $outEffects[] = "$effect $reverberance $damping $scale $depth $predelay";
-                    break;
+            case 'reverb':
+                $reverberance = random_int(20, 80);
+                $damping      = random_int(10, 80);
+                $scale        = random_int(85, 100);
+                $depth        = random_int(90, 100);
+                $predelay     = random_int(0, 5);
+                $outEffects[] = "$effect $reverberance $damping $scale $depth $predelay";
+                break;
 
-                case 'tempo':
-                    $factor = mt_rand(65, 135) / 100.0;
-                    $outEffects[] = "$effect -s $factor";
-                    break;
+            case 'tempo':
+                $factor = random_int(65, 135) / 100.0;
+                $outEffects[] = "$effect -s $factor";
+                break;
 
-                case 'tremolo':
-                    $hz    = mt_rand(10, 30);
-                    $depth = mt_rand(40, 85);
-                    $outEffects[] = "$effect $hz $depth";
-                    break;
-            }
+            case 'tremolo':
+                $hz    = random_int(10, 30);
+                $depth = random_int(40, 85);
+                $outEffects[] = "$effect $hz $depth";
+                break;
         }
-
-        return implode(' ', $outEffects);
     }
+
+    return implode(' ', $outEffects);
+}
 
     /**
      * This function is not yet used.
@@ -3130,45 +3191,49 @@ class Securimage
      * @param int $bitRate     Bits per sample (8, 16, 24)
      * @return string          Audio data in wav format
      */
-    protected function getSoxNoiseData($duration, $numChannels, $sampleRate, $bitRate)
-    {
-        $shapes = array('sine', 'square', 'triangle', 'sawtooth', 'trapezium');
-        $steps  = array(':', '+', '/', '-');
-        $selShapes = array_rand($shapes, 2);
-        $selSteps  = array_rand($steps, 2);
-        $sweep0    = array();
-        $sweep0[0] = mt_rand(100, 700);
-        $sweep0[1] = mt_rand(1500, 2500);
-        $sweep1    = array();
-        $sweep1[0] = mt_rand(500, 1000);
-        $sweep1[1] = mt_rand(1200, 2000);
+protected function getSoxNoiseData($duration, $numChannels, $sampleRate, $bitRate)
+{
+    $shapes = array('sine', 'square', 'triangle', 'sawtooth', 'trapezium');
+    $steps  = array(':', '+', '/', '-');
+    $selShapes = array_rand($shapes, 2);
+    $selSteps  = array_rand($steps, 2);
 
-        if (mt_rand(0, 10) % 2 == 0)
-            $sweep0 = array_reverse($sweep0);
+    $sweep0    = array();
+    $sweep0[0] = random_int(100, 700);
+    $sweep0[1] = random_int(1500, 2500);
 
-        if (mt_rand(0, 10) % 2 == 0)
-            $sweep1 = array_reverse($sweep1);
+    $sweep1    = array();
+    $sweep1[0] = random_int(500, 1000);
+    $sweep1[1] = random_int(1200, 2000);
 
-        $cmd = sprintf("%s -c %d -r %d -b %d -n -t wav - synth noise create vol 0.3 synth %.2f %s mix %d%s%d vol 0.3 synth %.2f %s fmod %d%s%d vol 0.3",
-                       $this->sox_binary_path,
-                       $numChannels,
-                       $sampleRate,
-                       $bitRate,
-                       $duration,
-                       $shapes[$selShapes[0]],
-                       $sweep0[0],
-                       $steps[$selSteps[0]],
-                       $sweep0[1],
-                       $duration,
-                       $shapes[$selShapes[1]],
-                       $sweep1[0],
-                       $steps[$selSteps[1]],
-                       $sweep1[1]
-                       );
-        $data = `$cmd`;
+    if (random_int(0, 10) % 2 == 0)
+        $sweep0 = array_reverse($sweep0);
 
-        return $data;
-    }
+    if (random_int(0, 10) % 2 == 0)
+        $sweep1 = array_reverse($sweep1);
+
+    $cmd = sprintf(
+        "%s -c %d -r %d -b %d -n -t wav - synth noise create vol 0.3 synth %.2f %s mix %d%s%d vol 0.3 synth %.2f %s fmod %d%s%d vol 0.3",
+        $this->sox_binary_path,
+        $numChannels,
+        $sampleRate,
+        $bitRate,
+        $duration,
+        $shapes[$selShapes[0]],
+        $sweep0[0],
+        $steps[$selSteps[0]],
+        $sweep0[1],
+        $duration,
+        $shapes[$selShapes[1]],
+        $sweep1[0],
+        $steps[$selSteps[1]],
+        $sweep1[1]
+    );
+
+    $data = `$cmd`;
+
+    return $data;
+}
 
     /**
      * Convert WAV data to MP3 using the Lame MP3 encoder binary
@@ -3288,10 +3353,10 @@ class Securimage
      *
      * @return float Random float between 0 and 0.9999
      */
-    function frand()
-    {
-        return 0.0001 * mt_rand(0,9999);
-    }
+function frand()
+{
+    return 0.0001 * random_int(0, 9999);
+}
 
     /**
      * Convert an html color code to a Securimage_Color
