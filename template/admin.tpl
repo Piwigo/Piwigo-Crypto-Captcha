@@ -181,6 +181,8 @@ var presets = {
         <option value="register" {if $crypto.activate_on.register}selected{/if}>{'Register form'|translate}</option>
         {if $loaded.contactform}<option value="contactform" {if $crypto.activate_on.contactform}selected{/if}>{'Contact form'|translate}</option>{/if}
         {if $loaded.guestbook}<option value="guestbook" {if $crypto.activate_on.guestbook}selected{/if}>{'Guestbook'|translate}</option>{/if}
+        <!-- NEW LOGIN OPTION -->
+        <option value="login" {if $crypto.activate_on.login}selected{/if}>{'Login form'|translate}</option>
       </select>
     </li>
     <li>
